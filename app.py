@@ -67,9 +67,20 @@ def ejecutar_consulta():
     
     filtro_revistas = " OR ".join([f"\"{j}\"[Journal]" for j in revistas])
     
-    # Filtro avanzado MeSH y texto libre para máxima sensibilidad en diseños de alta jerarquía
-    mesh_clinico = "(Sepsis[MeSH] OR Shock, Septic[MeSH] OR Respiration, Artificial[MeSH] OR Critical Care[MeSH] OR Renal Replacement Therapy[MeSH] OR Hemodynamics[MeSH] OR Intensive Care Units[MeSH])"
-    disenos_evidencia = "(Randomized Controlled Trial[PT] OR Controlled Clinical Trial[PT] OR Meta-Analysis[PT] OR Systematic Review[PT] OR \"Network Meta-Analysis\"[TIAB] OR \"NMA\"[TIAB])"
+    # Filtro de jerarquía: Combina MeSH [PT] con texto libre [TIAB] para capturar lo más reciente
+    jerarquia = ("(randomized Controlled Trial[PT] OR controlled clinical trial[PT] OR  clinical trial[PT] OR meta-analysis[PT] OR  network meta analysis[PT] OR "
+                 "\"randomized controlled trial\"[TIAB] OR \"randomised controlled trial\"[TIAB] OR  \"controlled clinical trial\"[TIAB] OR  \"clinical trial\"[TIAB] OR "
+                 "\"meta-analysis\"[TIAB] OR \"network meta-analysis\"[TIAB] OR \"NMA\"[TIAB])")
+    
+    # Fenotipos clínicos granulares (MeSH + TIAB)
+    topicos = ("(Sepsis[MeSH] OR \"sepsis\"[TIAB] OR \"septic shock\"[TIAB] OR "
+               "Respiratory Distress Syndrome, Adult[MeSH] OR \"ARDS\"[TIAB] OR "
+               "Renal Replacement Therapy[MeSH] OR \"CRRT\"[TIAB] OR \"AKI\"[TIAB] OR "
+               "Extracorporeal Membrane Oxygenation[MeSH] OR \"ECMO\"[TIAB] OR "
+               "Respiration, Artificial[MeSH] OR \"mechanical ventilation\"[TIAB] OR "
+               "hemoperfusion[Title/Abstract] OR \"hemoperfusion\"[TIAB] OR "
+               "hemoadsorption[Title/Abstract] OR \"hemoadsorption\"[TIAB] OR "
+               "Hemodynamics[MeSH] OR \"vasopressors\"[TIAB] OR \"hemodynamic monitoring\"[TIAB])")
     
     # Ventana temporal de 30 días para compensar latencia de indexación
     tiempo = "\"last 30 days\"[Filter]"
