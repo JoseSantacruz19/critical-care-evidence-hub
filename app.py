@@ -14,28 +14,39 @@ st.title("📚 Observatorio de Evidencia de Alta Jerarquía")
 st.subheader("Integración de Vanguardia: NCBI + Europe PMC + Crossref")
 
 def fetch_pubmed(query, max_results=30):
-    """Recupera metadatos desde NCBI PubMed utilizando Biopython."""
+    """Recupera metadatos desde NCBI PubMed utilizando Biopython de forma segura."""
     try:
-        handle = Entrez.esearch(db="pubmed", term=query, retmax=max_results)
+        # MEJORA 1: Usamos reldate=30 y datetype="edat" nativos de la API en lugar de texto
+        handle = Entrez.esearch(db="pubmed", term=query, retmax=max_results, reldate=30, datetype="edat")
         id_list = Entrez.read(handle)["IdList"]
+        
         if not id_list: return []
+        
         handle = Entrez.efetch(db="pubmed", id=",".join(id_list), retmode="xml")
         records = Entrez.read(handle)
         results = []
-        for art in records['PubmedArticle']:
-            medline = art['MedlineCitation']['Article']
+        
+        # MEJORA 2: Usamos .get() en todas partes para evitar que un metadato faltante rompa el código
+        for art in records.get('PubmedArticle', []):
+            medline = art.get('MedlineCitation', {}).get('Article', {})
             doi = "No disponible"
-            for ident in art['PubmedData'].get('ArticleIdList', []):
-                if ident.attributes.get('IdType') == 'doi': doi = str(ident).lower()
+            
+            for ident in art.get('PubmedData', {}).get('ArticleIdList', []):
+                if ident.attributes.get('IdType') == 'doi': 
+                    doi = str(ident).lower()
+                    
             results.append({
                 "Título": medline.get('ArticleTitle', 'N/A'),
-                "Revista": medline['Journal'].get('Title', 'N/A'),
+                "Revista": medline.get('Journal', {}).get('Title', 'N/A'),
                 "Diseño": ", ".join([str(tp) for tp in medline.get('PublicationTypeList', [])]),
                 "DOI": doi,
                 "Fuente": "PubMed"
             })
         return results
-    except Exception: return []
+    except Exception as e:
+        # MEJORA 3: Mostramos el error temporalmente en pantalla para saber qué pasa
+        st.error(f"Error interno consultando PubMed: {e}")
+        return []
 
 def fetch_europe_pmc(query, max_results=30):
     """Recupera metadatos desde la API REST de Europe PMC."""
@@ -107,7 +118,7 @@ def ejecutar_vigilancia():
     # -------------------------------------------------------------------
     
     # Ensamblaje de consultas finales
-    q_pubmed = f"({jr_pubmed}) AND {topicos_text} AND {hier_pubmed} AND (\"last 30 days\"[Filter])"
+    q_pubmed = f"({jr_pubmed}) AND {topicos_text} AND {hier_pubmed}"
     
     # Insertamos las fechas dinámicas en la consulta de Europe PMC
     q_epmc = f"({jr_epmc}) AND {topicos_text} AND {hier_epmc} AND FIRST_PDATE:[{fecha_inicio} TO {fecha_fin}]"
