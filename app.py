@@ -72,7 +72,9 @@ def ejecutar_vigilancia():
         "Clinical journal of the American Society of Nephrology", "Clinical nutrition",
         "Critical care medicine", "Chest", "Burns & trauma", "Advances in wound care",
         "Annals of intensive care", "Journal of trauma and acute care surgery",
-        "Neurocritical care", "Acta Colombiana de Cuidado Intensivo", "Medicina intensiva"
+        "Neurocritical care", "Acta Colombiana de Cuidado Intensivo", "Medicina intensiva", 
+        "New England Journal of Medicine", "Nature Medicine", "Lancet", "JAMA", "Lancet Respiratory Medicine",
+        "JAMA Cardiology", "Shock"
     ]
     
     # Construcción segura de subconsultas para evitar SyntaxErrors
