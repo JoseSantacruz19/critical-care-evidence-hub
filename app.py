@@ -98,7 +98,7 @@ def ejecutar_vigilancia():
     
     # Ensamblaje de consultas finales
     q_pubmed = f"({jr_pubmed}) AND {topicos_text} AND {hier_pubmed} AND (\"last 30 days\"[Filter])"
-    q_epmc = f"({jr_epmc}) AND {topicos_text} AND {hier_epmc} AND FIRST_PDATE:[2026-02-01 TO 2026-03-03]"
+    q_epmc = f"({jr_epmc}) AND {topicos_text} AND {hier_epmc} AND FIRST_PDATE:[2026-01-01 TO 2026-03-03]"
     
     with st.spinner('Sincronizando bases de datos globales y enriqueciendo metadatos...'):
         res_pubmed = fetch_pubmed(q_pubmed)
