@@ -1,1 +1,1 @@
-streamlit, biopython y pandas
+streamlit, biopython, pandas
