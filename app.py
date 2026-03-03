@@ -79,11 +79,11 @@ def ejecutar_vigilancia():
         "trials", "Clinical Trials"
     ]
     
-    # Construcción segura de subconsultas para evitar SyntaxErrors
+    # Construcción segura de subconsultas
     jr_pubmed = " OR ".join([f'"{j}"[Journal]' for j in revistas])
     jr_epmc = " OR ".join([f'JOURNAL:"{j}"' for j in revistas])
     
-    # Definición de tópicos clínicos granulares (Sepsis, ARDS, CRRT, etc.)
+    # Definición de tópicos clínicos granulares
     topicos_text = ("(sepsis OR \"septic shock\" OR \"cardiogenic shock\" OR \"shock\" OR "
                     "\"Acute Respiratory Distress Syndrome\" OR \"Continuous Renal Replacement Therapy\" OR "
                     "\"Acute Kidney Injury\" OR \"Extracorporeal Membrane Oxygenation\" OR "
@@ -92,13 +92,25 @@ def ejecutar_vigilancia():
                     "\"hemodynamic monitoring\" OR \"status epilepticus\" OR "
                     "\"acute liver failure\" OR \"ventilator-associated pneumonia\" OR "
                     "\"delirium\" OR \"multiorgan failure\")")
-    # Filtros de jerarquía (ECA y Metanálisis)
+                    
+    # Filtros de jerarquía
     hier_pubmed = "(Randomized Controlled Trial[PT] OR Controlled Clinical Trial[PT] OR Meta-Analysis[PT])"
     hier_epmc = "(PUB_TYPE:\"Randomized Controlled Trial\" OR PUB_TYPE:\"Controlled Clinical Trial\" OR PUB_TYPE:\"clinical trial\" OR PUB_TYPE:\"Meta-Analysis\")"
     
+    # --- NUEVO: Cálculo dinámico de fechas para los últimos 30 días ---
+    hoy = datetime.date.today()
+    hace_30_dias = hoy - datetime.timedelta(days=30)
+    
+    # Convertimos las fechas a texto en formato AAAA-MM-DD
+    fecha_fin = hoy.strftime("%Y-%m-%d")
+    fecha_inicio = hace_30_dias.strftime("%Y-%m-%d")
+    # -------------------------------------------------------------------
+    
     # Ensamblaje de consultas finales
     q_pubmed = f"({jr_pubmed}) AND {topicos_text} AND {hier_pubmed} AND (\"last 30 days\"[Filter])"
-    q_epmc = f"({jr_epmc}) AND {topicos_text} AND {hier_epmc} AND FIRST_PDATE:[2026-02-01 TO 2026-03-01]"
+    
+    # Insertamos las fechas dinámicas en la consulta de Europe PMC
+    q_epmc = f"({jr_epmc}) AND {topicos_text} AND {hier_epmc} AND FIRST_PDATE:[{fecha_inicio} TO {fecha_fin}]"
     
     with st.spinner('Sincronizando bases de datos globales y enriqueciendo metadatos...'):
         res_pubmed = fetch_pubmed(q_pubmed)
@@ -108,10 +120,9 @@ def ejecutar_vigilancia():
         df_total = pd.concat([pd.DataFrame(res_pubmed), pd.DataFrame(res_epmc)], ignore_index=True)
         
         if not df_total.empty:
-            # La desduplicación previene la sobreestimación del volumen de evidencia (Rathbone, 2015)
             df_final = df_total.drop_duplicates(subset='DOI', keep='first').copy()
             
-            # Enriquecimiento opcional con Crossref (puede aumentar el tiempo de respuesta)
+            # Enriquecimiento con Crossref
             if st.sidebar.checkbox('Verificar impacto (Citas Crossref)'):
                 df_final['Citas'] = df_final['DOI'].apply(get_crossref_citations)
             
@@ -120,6 +131,6 @@ def ejecutar_vigilancia():
                          column_config={"DOI": st.column_config.LinkColumn("Enlace DOI")})
         else:
             st.warning("No se identificaron nuevos estudios que cumplan los criterios en la ventana de 30 días.")
-
+            
 if st.sidebar.button('Sincronizar Evidencia Global'):
     ejecutar_vigilancia()
