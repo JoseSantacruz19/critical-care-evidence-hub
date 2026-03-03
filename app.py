@@ -68,24 +68,24 @@ def ejecutar_consulta():
     filtro_revistas = " OR ".join([f"\"{j}\"[Journal]" for j in revistas])
     
     # Filtro de jerarquía: Combina MeSH [PT] con texto libre [TIAB] para capturar lo más reciente
-    jerarquia = ("(randomized Controlled Trial[PT] OR controlled clinical trial[PT] OR  clinical trial[PT] OR meta-analysis[PT] OR  network meta analysis[PT] OR "
-                 "\"randomized controlled trial\"[TIAB] OR \"randomised controlled trial\"[TIAB] OR  \"controlled clinical trial\"[TIAB] OR  \"clinical trial\"[TIAB] OR "
+    jerarquia = ("(Randomized Controlled Trial[PT] OR Controlled Clinical Trial[PT] OR Clinical Trial[PT] OR Meta-Analysis[PT] OR "
+                 "\"randomized controlled trial\"[TIAB] OR \"randomised controlled trial\"[TIAB] OR \"controlled clinical trial\"[TIAB] OR \"clinical trial\"[TIAB] OR "
                  "\"meta-analysis\"[TIAB] OR \"network meta-analysis\"[TIAB] OR \"NMA\"[TIAB])")
     
-    # Fenotipos clínicos granulares (MeSH + TIAB)
-    topicos = ("(Sepsis[MeSH] OR \"sepsis\"[TIAB] OR \"septic shock\"[TIAB] OR "
+    # Fenotipos clínicos granulares (MeSH + TIAB optimizado sin redundancias)
+    topicos = ("(Sepsis[MeSH] OR Shock, Septic[MeSH] OR \"sepsis\"[TIAB] OR \"septic shock\"[TIAB] OR "
                "Respiratory Distress Syndrome, Adult[MeSH] OR \"ARDS\"[TIAB] OR "
                "Renal Replacement Therapy[MeSH] OR \"CRRT\"[TIAB] OR \"AKI\"[TIAB] OR "
                "Extracorporeal Membrane Oxygenation[MeSH] OR \"ECMO\"[TIAB] OR "
                "Respiration, Artificial[MeSH] OR \"mechanical ventilation\"[TIAB] OR "
-               "hemoperfusion[Title/Abstract] OR \"hemoperfusion\"[TIAB] OR "
-               "hemoadsorption[Title/Abstract] OR \"hemoadsorption\"[TIAB] OR "
+               "\"hemoperfusion\"[TIAB] OR \"hemoadsorption\"[TIAB] OR "
                "Hemodynamics[MeSH] OR \"vasopressors\"[TIAB] OR \"hemodynamic monitoring\"[TIAB])")
     
     # Ventana temporal de 30 días para compensar latencia de indexación
     tiempo = "\"last 30 days\"[Filter]"
     
-    consulta_final = f"({filtro_revistas}) AND {mesh_clinico} AND {disenos_evidencia} AND {tiempo}"
+    # CORRECCIÓN APLICADA: Se sustituye mesh_clinico por topicos
+    consulta_final = f"({filtro_revistas}) AND {topicos} AND {jerarquia} AND {tiempo}"
     
     with st.spinner('Ejecutando escrutinio metodológico en PubMed...'):
         handle = Entrez.esearch(db="pubmed", term=consulta_final, retmax=50)
