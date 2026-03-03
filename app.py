@@ -73,8 +73,10 @@ def ejecutar_vigilancia():
         "Critical care medicine", "Chest", "Burns & trauma", "Advances in wound care",
         "Annals of intensive care", "Journal of trauma and acute care surgery",
         "Neurocritical care", "Acta Colombiana de Cuidado Intensivo", "Medicina intensiva", 
-        "New England Journal of Medicine", "Nature Medicine", "Lancet", "JAMA", "Lancet Respiratory Medicine",
-        "JAMA Cardiology", "Shock"
+        "New England Journal of Medicine", "Nature Medicine", 
+        "Lancet",  "Lancet Respiratory Medicine",
+        "JAMA", "JAMA Cardiology", "Shock", 
+        "trials", "Clinical Trials"
     ]
     
     # Construcción segura de subconsultas para evitar SyntaxErrors
@@ -82,13 +84,17 @@ def ejecutar_vigilancia():
     jr_epmc = " OR ".join([f'JOURNAL:"{j}"' for j in revistas])
     
     # Definición de tópicos clínicos granulares (Sepsis, ARDS, CRRT, etc.)
-    topicos_text = ("(sepsis OR \"septic shock\" OR ARDS OR CRRT OR AKI OR ECMO OR "
-                    "\"mechanical ventilation\" OR hemoperfusion OR hemoadsorption OR "
-                    "vasopressors OR \"hemodynamic monitoring\")")
-    
+    topicos_text = ("(sepsis OR \"septic shock\" OR \"cardiogenic shock\" OR \"shock\" OR "
+                    "\"Acute Respiratory Distress Syndrome\" OR \"Continuous Renal Replacement Therapy\" OR "
+                    "\"Acute Kidney Injury\" OR \"Extracorporeal Membrane Oxygenation\" OR "
+                    "\"mechanical ventilation\" OR \"ultrasound\" OR \"intensive care unit\" OR "
+                    "\"hemoperfusion\" OR \"hemoadsorption\" OR \"vasopressors\" OR "
+                    "\"hemodynamic monitoring\" OR \"status epilepticus\" OR "
+                    "\"acute liver failure\" OR \"ventilator-associated pneumonia\" OR "
+                    "\"delirium\" OR \"multiorgan failure\")")
     # Filtros de jerarquía (ECA y Metanálisis)
-    hier_pubmed = "(Randomized Controlled Trial[PT] OR Meta-Analysis[PT])"
-    hier_epmc = "(PUB_TYPE:\"Randomized Controlled Trial\" OR PUB_TYPE:\"Meta-Analysis\")"
+    hier_pubmed = "(Randomized Controlled Trial[PT] OR Controlled Clinical Trial[PT] OR Meta-Analysis[PT])"
+    hier_epmc = "(PUB_TYPE:\"Randomized Controlled Trial\" OR PUB_TYPE:\"Controlled Clinical Trial\" OR PUB_TYPE:\"clinical trial\" OR PUB_TYPE:\"Meta-Analysis\")"
     
     # Ensamblaje de consultas finales
     q_pubmed = f"({jr_pubmed}) AND {topicos_text} AND {hier_pubmed} AND (\"last 30 days\"[Filter])"
