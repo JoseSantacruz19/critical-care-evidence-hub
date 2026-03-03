@@ -1,104 +1,73 @@
 import streamlit as st
-from Bio import Entrez
+import requests
 import pandas as pd
+import datetime
+from Bio import Entrez
 
-# Configuración del entorno de vigilancia bibliográfica de alta precisión
+# Configuración de credenciales y entorno
 Entrez.email = "ja.santacruz.arias@gmail.com"
 Entrez.api_key = st.secrets["NCBI_API_KEY"]
 
-st.set_page_config(page_title="Vigilancia ICU Elite", layout="wide")
-st.title("📚 Observatorio de Evidencia de Alta Jerarquía")
-st.subheader("Filtro Epidemiológico: ECA, Metanálisis y NMA en Revistas Top Q1")
+st.set_page_config(page_title="Vigilancia ICU Multi-Fuente", layout="wide")
+st.title("📚 Observatorio de Evidencia Multi-Base (NCBI + Europe PMC)")
 
-def extraer_metadatos(id_list):
-    if not id_list:
+def fetch_pubmed(query, max_results=20):
+    try:
+        handle = Entrez.esearch(db="pubmed", term=query, retmax=max_results)
+        id_list = Entrez.read(handle)["IdList"]
+        if not id_list: return []
+        handle = Entrez.efetch(db="pubmed", id=",".join(id_list), retmode="xml")
+        records = Entrez.read(handle)
+        results = []
+        for art in records['PubmedArticle']:
+            medline = art['MedlineCitation']['Article']
+            doi = "N/A"
+            for ident in art['PubmedData'].get('ArticleIdList', []):
+                if ident.attributes.get('IdType') == 'doi': doi = str(ident)
+            results.append({
+                "Título": medline.get('ArticleTitle', 'N/A'),
+                "Revista": medline['Journal'].get('Title', 'N/A'),
+                "DOI": doi.lower(),
+                "Fuente": "PubMed"
+            })
+        return results
+    except Exception as e:
         return []
-    ids = ",".join(id_list)
-    handle = Entrez.efetch(db="pubmed", id=ids, retmode="xml")
-    records = Entrez.read(handle)
-    
-    lista_articulos = []
-    for article in records['PubmedArticle']:
-        detalles = article['MedlineCitation']['Article']
-        titulo = detalles.get('ArticleTitle', 'N/A')
-        revista = detalles['Journal'].get('Title', 'N/A')
-        
-        # Procesamiento de autores con formato académico
-        autores_raw = detalles.get('AuthorList', [])
-        autores = ", ".join([f"{a.get('LastName', '')} {a.get('Initials', '')}" for a in autores_raw])
-        
-        # Extracción de tipo de publicación para validación de diseño
-        tipos_pub = detalles.get('PublicationTypeList', [])
-        diseno = ", ".join([str(tp) for tp in tipos_pub])
-        
-        # Resolución del DOI y enlace persistente
-        ids_pubmed = article['PubmedData'].get('ArticleIdList', [])
-        doi = "No disponible"
-        for item in ids_pubmed:
-            if item.attributes.get('IdType') == 'doi':
-                doi = str(item)
-        
-        pmid = article['MedlineCitation']['PMID']
-        link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-        
-        lista_articulos.append({
-            "Título": titulo,
-            "Autores": autores,
-            "Revista": revista,
-            "Diseño de Estudio": diseno,
-            "DOI": doi,
-            "Enlace PubMed": link
-        })
-    return lista_articulos
 
-def ejecutar_consulta():
-    # Estrategia de búsqueda: Lista blanca de las mejores revistas (Top 20 + Regionales)
-    revistas = [
-        "American journal of respiratory and critical care medicine", "Intensive care medicine",
-        "Journal of the American Society of Nephrology", "Critical care",
-        "Clinical journal of the American Society of Nephrology", "Clinical nutrition",
-        "Critical care medicine", "Chest", "Burns & trauma", "Advances in wound care",
-        "Annals of intensive care", "Chinese medical journal pulmonary and critical care medicine",
-        "European heart journal. Acute cardiovascular care", "The journal of trauma and acute care surgery",
-        "Journal of intensive care", "Neurocritical care", "Critical care clinics",
-        "Pediatric critical care medicine", "Journal of critical care", "Current opinion in critical care",
-        "Acta Colombiana de Cuidado Intensivo", "Medicina intensiva"
-    ]
+def fetch_europe_pmc(query, max_results=20):
+    url = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
+    params = {"query": query, "format": "json", "resultType": "core", "pageSize": max_results}
+    try:
+        r = requests.get(url, params=params)
+        data = r.json().get('resultList', {}).get('result', [])
+        return [{
+            "Título": a.get('title', 'N/A'),
+            "Revista": a.get('journalTitle', 'N/A'),
+            "DOI": a.get('doi', 'N/A').lower(),
+            "Fuente": "Europe PMC"
+        } for a in data]
+    except:
+        return []
+
+def ejecutar_vigilancia():
+    revistas = ["Intensive care medicine", "Critical care", "Acta Colombiana de Cuidado Intensivo", "Medicina intensiva"]
+    # Simplificación de la query para demostración de vínculo
+    q_pubmed = f'({" OR ".join([f"{j}[Journal]" for j in revistas])}) AND ("last 30 days"[Filter])'
+    q_epmc = f'({" OR ".join([f"JOURNAL:\\"{j}\\"" for j in revistas])}) AND FIRST_PDATE:[2026-02-01 TO 2026-03-03]'
     
-    filtro_revistas = " OR ".join([f"\"{j}\"[Journal]" for j in revistas])
-    
-    # Filtro de jerarquía: Combina MeSH [PT] con texto libre [TIAB] para capturar lo más reciente
-    jerarquia = ("(Randomized Controlled Trial[PT] OR Controlled Clinical Trial[PT] OR Clinical Trial[PT] OR Meta-Analysis[PT] OR "
-                 "\"randomized controlled trial\"[TIAB] OR \"randomised controlled trial\"[TIAB] OR \"controlled clinical trial\"[TIAB] OR \"clinical trial\"[TIAB] OR "
-                 "\"meta-analysis\"[TIAB] OR \"network meta-analysis\"[TIAB] OR \"NMA\"[TIAB])")
-    
-    # Fenotipos clínicos granulares (MeSH + TIAB optimizado sin redundancias)
-    topicos = ("(Sepsis[MeSH] OR Shock, Septic[MeSH] OR \"sepsis\"[TIAB] OR \"septic shock\"[TIAB] OR "
-               "Respiratory Distress Syndrome, Adult[MeSH] OR \"ARDS\"[TIAB] OR "
-               "Renal Replacement Therapy[MeSH] OR \"CRRT\"[TIAB] OR \"AKI\"[TIAB] OR "
-               "Extracorporeal Membrane Oxygenation[MeSH] OR \"ECMO\"[TIAB] OR "
-               "Respiration, Artificial[MeSH] OR \"mechanical ventilation\"[TIAB] OR "
-               "\"hemoperfusion\"[TIAB] OR \"hemoadsorption\"[TIAB] OR "
-               "Hemodynamics[MeSH] OR \"vasopressors\"[TIAB] OR \"hemodynamic monitoring\"[TIAB])")
-    
-    # Ventana temporal de 30 días para compensar latencia de indexación
-    tiempo = "\"last 30 days\"[Filter]"
-    
-    # CORRECCIÓN APLICADA: Se sustituye mesh_clinico por topicos
-    consulta_final = f"({filtro_revistas}) AND {topicos} AND {jerarquia} AND {tiempo}"
-    
-    with st.spinner('Ejecutando escrutinio metodológico en PubMed...'):
-        handle = Entrez.esearch(db="pubmed", term=consulta_final, retmax=50)
-        resultado = Entrez.read(handle)
-        id_list = resultado["IdList"]
+    with st.spinner('Sincronizando bases de datos...'):
+        res_pubmed = fetch_pubmed(q_pubmed)
+        res_epmc = fetch_europe_pmc(q_epmc)
         
-        if id_list:
-            articulos = extraer_metadatos(id_list)
-            df = pd.DataFrame(articulos)
-            st.success(f"Se han identificado {len(id_list)} estudios de alta jerarquía metodológica.")
-            st.dataframe(df, use_container_width=True)
+        # Unificación y desduplicación por DOI
+        df_total = pd.concat([pd.DataFrame(res_pubmed), pd.DataFrame(res_epmc)], ignore_index=True)
+        if not df_total.empty:
+            # La desduplicación técnica es vital para evitar el sesgo de redundancia (Rathbone, 2015)
+            df_final = df_total.drop_duplicates(subset='DOI', keep='first')
+            st.success(f"Sincronización completa: {len(df_final)} estudios únicos identificados.")
+            st.dataframe(df_final, use_container_width=True)
         else:
-            st.warning("No se identificaron estudios con los criterios de alta jerarquía en el periodo de 30 días.")
+            st.info("No se hallaron registros en el intervalo temporal.")
 
-if st.sidebar.button('Sincronizar Evidencia Top'):
-    ejecutar_consulta()
+if st.sidebar.button('Sincronizar Evidencia Global'):
+    ejecutar_vigilancia()
