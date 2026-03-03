@@ -49,20 +49,32 @@ def fetch_pubmed(query, max_results=30):
         return []
 
 def fetch_europe_pmc(query, max_results=30):
-    """Recupera metadatos desde la API REST de Europe PMC."""
+    """Recupera metadatos desde la API REST de Europe PMC de forma segura."""
     url = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
     params = {"query": query, "format": "json", "resultType": "core", "pageSize": max_results}
     try:
         r = requests.get(url, params=params)
         data = r.json().get('resultList', {}).get('result', [])
-        return [{
-            "Título": a.get('title', 'N/A'),
-            "Revista": a.get('journalTitle', 'N/A'),
-            "Diseño": ", ".join(a.get('pubTypeList', {}).get('pubType', [])),
-            "DOI": a.get('doi', 'N/A').lower(),
-            "Fuente": "Europe PMC"
-        } for a in data]
-    except: return []
+        
+        resultados = []
+        for a in data:
+            # 1. Intentamos sacar la revista de la ruta "core" (anidada)
+            revista_core = a.get('journalInfo', {}).get('journal', {}).get('title')
+            # 2. Si no está, intentamos la ruta básica. Si falla, ponemos 'N/A'.
+            revista_final = revista_core or a.get('journalTitle', 'N/A')
+            
+            resultados.append({
+                "Título": a.get('title', 'N/A'),
+                "Revista": revista_final,
+                "Diseño": ", ".join(a.get('pubTypeList', {}).get('pubType', [])),
+                "DOI": a.get('doi', 'N/A').lower(),
+                "Fuente": "Europe PMC"
+            })
+            
+        return resultados
+    except Exception as e: 
+        st.error(f"Error consultando Europe PMC: {e}")
+        return []
 
 def get_crossref_citations(doi):
     """Obtiene el conteo de citaciones desde Crossref para enriquecer la evidencia."""
